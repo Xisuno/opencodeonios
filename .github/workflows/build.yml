@@ -1,0 +1,42 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # If the build complains about a missing SDK (the project mentions visionOS 26),
+    # try changing this to macos-26.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build (unsigned)
+        run: |
+          PROJECT=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
+          echo "Using project: $PROJECT"
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme OpenCodeClient \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r OpenCodeClient.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenCodeClient-unsigned-ipa
+          path: OpenCodeClient.ipa
